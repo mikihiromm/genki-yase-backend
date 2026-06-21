@@ -99,35 +99,7 @@ router.post('/', async (req, res) => {
   }
 });
 
-// 日付別の食事記録を取得
-router.get('/:userId/:date', async (req, res) => {
-  const { userId, date } = req.params;
-  if (!userId || !date) {
-    return res.status(400).json({ error: 'ユーザーIDと日付を指定してください。' });
-  }
-  try {
-    const result = await db.query(
-      `SELECT * FROM meal_records WHERE user_id = $1 AND meal_date = $2 ORDER BY created_at ASC`,
-      [userId, date]
-    );
-    const totals = result.rows.reduce(
-      (acc, row) => ({
-        calories: acc.calories + (row.calories || 0),
-        protein:  acc.protein  + (row.protein  || 0),
-        salt:     acc.salt     + (row.salt     || 0),
-        carbs:    acc.carbs    + (row.carbs    || 0),
-        fat:      acc.fat      + (row.fat      || 0),
-      }),
-      { calories: 0, protein: 0, salt: 0, carbs: 0, fat: 0 }
-    );
-    res.json({ success: true, meals: result.rows, totals, count: result.rows.length });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: '食事記録の取得に失敗しました。もう一度お試しください。' });
-  }
-});
-
-// 過去7日間の食事履歴 + AIアドバイス
+// 過去7日間の食事履歴 + AIアドバイス（/:userId/:dateより前に定義する必要あり）
 router.get('/history/:userId', async (req, res) => {
   const { userId } = req.params;
   try {
@@ -188,6 +160,34 @@ ${summary}
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: '履歴の取得に失敗しました。' });
+  }
+});
+
+// 日付別の食事記録を取得
+router.get('/:userId/:date', async (req, res) => {
+  const { userId, date } = req.params;
+  if (!userId || !date) {
+    return res.status(400).json({ error: 'ユーザーIDと日付を指定してください。' });
+  }
+  try {
+    const result = await db.query(
+      `SELECT * FROM meal_records WHERE user_id = $1 AND meal_date = $2 ORDER BY created_at ASC`,
+      [userId, date]
+    );
+    const totals = result.rows.reduce(
+      (acc, row) => ({
+        calories: acc.calories + (row.calories || 0),
+        protein:  acc.protein  + (row.protein  || 0),
+        salt:     acc.salt     + (row.salt     || 0),
+        carbs:    acc.carbs    + (row.carbs    || 0),
+        fat:      acc.fat      + (row.fat      || 0),
+      }),
+      { calories: 0, protein: 0, salt: 0, carbs: 0, fat: 0 }
+    );
+    res.json({ success: true, meals: result.rows, totals, count: result.rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '食事記録の取得に失敗しました。もう一度お試しください。' });
   }
 });
 
