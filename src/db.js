@@ -51,6 +51,14 @@ export const initDb = async () => {
       diastolic INTEGER,
       recorded_at TIMESTAMP NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS user_goals (
+      user_id TEXT PRIMARY KEY,
+      calorie_goal INTEGER NOT NULL DEFAULT 1600,
+      protein_goal NUMERIC(5,1),
+      salt_goal NUMERIC(4,1),
+      updated_at TIMESTAMP DEFAULT NOW()
+    );
   `);
   console.log('データベース初期化完了');
 };
