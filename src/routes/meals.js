@@ -191,4 +191,22 @@ router.get('/:userId/:date', async (req, res) => {
   }
 });
 
+// 食事記録を削除
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await db.query(
+      `DELETE FROM meal_records WHERE id = $1 RETURNING id`,
+      [id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: '記録が見つかりませんでした。' });
+    }
+    res.json({ success: true, message: '削除しました。' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '削除に失敗しました。もう一度お試しください。' });
+  }
+});
+
 export default router;
