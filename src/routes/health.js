@@ -19,6 +19,24 @@ router.post('/', async (req, res) => {
   }
 });
 
+// 最新の体重を取得
+router.get('/:userId/latest', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await db.query(
+      `SELECT weight FROM health_records
+       WHERE user_id = $1 AND weight IS NOT NULL
+       ORDER BY recorded_at DESC LIMIT 1`,
+      [userId]
+    );
+    if (result.rows.length === 0) return res.json({ success: true, weight: null });
+    res.json({ success: true, weight: parseFloat(result.rows[0].weight) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '取得に失敗しました' });
+  }
+});
+
 // 過去30日の健康記録を取得
 router.get('/:userId', async (req, res) => {
   const { userId } = req.params;

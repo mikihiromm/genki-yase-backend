@@ -127,4 +127,68 @@ router.get('/:userId/:date', async (req, res) => {
   }
 });
 
+// 過去7日間の食事履歴 + AIアドバイス
+router.get('/history/:userId', async (req, res) => {
+  const { userId } = req.params;
+  try {
+    const result = await db.query(
+      `SELECT * FROM meal_records
+       WHERE user_id = $1 AND meal_date >= CURRENT_DATE - INTERVAL '7 days'
+       ORDER BY meal_date DESC, created_at ASC`,
+      [userId]
+    );
+
+    // 日付ごとにグループ化
+    const grouped = {};
+    for (const row of result.rows) {
+      const d = row.meal_date instanceof Date
+        ? row.meal_date.toISOString().split('T')[0]
+        : String(row.meal_date).split('T')[0];
+      if (!grouped[d]) grouped[d] = [];
+      grouped[d].push(row);
+    }
+
+    // データが少ない場合はAIアドバイスをスキップ
+    let advice = null;
+    if (result.rows.length >= 2) {
+      const summary = Object.entries(grouped).slice(0, 5).map(([date, meals]) => {
+        const totalCal = meals.reduce((s, m) => s + (m.calories || 0), 0);
+        const totalProt = meals.reduce((s, m) => s + parseFloat(m.protein || 0), 0);
+        const totalSalt = meals.reduce((s, m) => s + parseFloat(m.salt || 0), 0);
+        const dishes = meals.flatMap(m => Array.isArray(m.dishes) ? m.dishes : []);
+        return `${date}: ${dishes.join('、')} / ${totalCal}kcal / タンパク質${totalProt.toFixed(1)}g / 塩分${totalSalt.toFixed(1)}g`;
+      }).join('\n');
+
+      const aiRes = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 600,
+        messages: [{
+          role: 'user',
+          content: `あなたは日本の管理栄養士です。シニア（60〜80代）の食事履歴を見て、日本語でアドバイスをください。
+
+食事履歴（直近）：
+${summary}
+
+以下のJSON形式のみで返してください（説明文不要）：
+{
+  "overall": "全体的な食習慣のコメント（50文字以内）",
+  "good": "良い点（40文字以内）",
+  "improve": "改善のヒント（40文字以内）",
+  "tip": "明日から試せる具体的なアドバイス（50文字以内）"
+}`
+        }]
+      });
+
+      const text = aiRes.content[0].text.trim();
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) advice = JSON.parse(match[0]);
+    }
+
+    res.json({ success: true, history: grouped, advice, count: result.rows.length });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: '履歴の取得に失敗しました。' });
+  }
+});
+
 export default router;

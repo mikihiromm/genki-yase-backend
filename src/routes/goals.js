@@ -20,7 +20,7 @@ router.get('/presets', (req, res) => {
 // カロリー目標を保存・更新
 router.post('/:userId', async (req, res) => {
   const { userId } = req.params;
-  const { calorieGoal, proteinGoal, saltGoal, presetKey } = req.body;
+  const { calorieGoal, proteinGoal, saltGoal, presetKey, weightGoal } = req.body;
 
   if (!userId) {
     return res.status(400).json({ error: 'ユーザーIDを指定してください。' });
@@ -38,16 +38,19 @@ router.post('/:userId', async (req, res) => {
   }
 
   try {
+    // weight_goal列が存在しない場合は追加
+    await db.query(`ALTER TABLE user_goals ADD COLUMN IF NOT EXISTS weight_goal NUMERIC(5,1)`).catch(() => {});
+
     await db.query(
-      `INSERT INTO user_goals (user_id, calorie_goal, protein_goal, salt_goal, updated_at)
-       VALUES ($1, $2, $3, $4, NOW())
+      `INSERT INTO user_goals (user_id, calorie_goal, protein_goal, salt_goal, weight_goal, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW())
        ON CONFLICT (user_id) DO UPDATE
-       SET calorie_goal = $2, protein_goal = $3, salt_goal = $4, updated_at = NOW()`,
-      [userId, goals.calorieGoal, goals.proteinGoal || null, goals.saltGoal || null]
+       SET calorie_goal = $2, protein_goal = $3, salt_goal = $4, weight_goal = COALESCE($5, user_goals.weight_goal), updated_at = NOW()`,
+      [userId, goals.calorieGoal, goals.proteinGoal || null, goals.saltGoal || null, weightGoal || null]
     );
     res.json({
       success: true,
-      goals: { ...goals, userId },
+      goals: { ...goals, weightGoal, userId },
       message: `1日の目標を${goals.calorieGoal}kcalに設定しました。`
     });
   } catch (err) {
@@ -79,6 +82,7 @@ router.get('/:userId', async (req, res) => {
         calorieGoal: row.calorie_goal,
         proteinGoal: row.protein_goal,
         saltGoal: row.salt_goal,
+        weightGoal: row.weight_goal,
       },
       isDefault: false
     });
