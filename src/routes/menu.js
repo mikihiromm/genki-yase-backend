@@ -86,6 +86,27 @@ router.post('/generate', async (req, res) => {
     const seasoningText = (seasonings || []).join('、') || 'なし';
     const leftoverText = (leftovers || []).join('、') || 'なし';
 
+    // 話題のレシピを軽く調べる（構造化出力とは別の呼び出しにすることで両立させる）
+    let trendNotes = '';
+    try {
+      const searchRes = await client.messages.create({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 500,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 1 }],
+        messages: [{
+          role: 'user',
+          content: '今ネットで話題になっている日本の家庭料理レシピを2〜3件調べて、料理名と特徴を簡潔に教えてください。',
+        }],
+      });
+      trendNotes = searchRes.content
+        .filter(b => b.type === 'text')
+        .map(b => b.text)
+        .join('\n')
+        .trim();
+    } catch (searchErr) {
+      console.warn('話題レシピの検索に失敗（フォールバックして続行）:', searchErr.message);
+    }
+
     const dishSchema = {
       type: 'object',
       properties: { name: { type: 'string' }, recipe: { type: 'string' } },
@@ -157,6 +178,9 @@ ${leftoverText}
 
 【コース】
 ${COURSE_NAMES[course]}：${COURSE_PROMPTS[course]}
+
+【参考：最近話題のレシピ（着想のヒントにしてよい。コピーはしない）】
+${trendNotes || '（取得できませんでした。通常の知識で提案してください）'}
 
 【献立のルール】
 - 朝食：栄養バランスよく。品数は柔軟（1〜3品程度）
