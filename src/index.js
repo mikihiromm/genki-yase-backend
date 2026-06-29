@@ -5,6 +5,7 @@ import mealRoutes from './routes/meals.js';
 import exerciseRoutes from './routes/exercises.js';
 import healthRoutes from './routes/health.js';
 import goalRoutes from './routes/goals.js';
+import menuRoutes from './routes/menu.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,7 @@ app.use('/api/meals', mealRoutes);
 app.use('/api/exercises', exerciseRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/menu', menuRoutes);
 
 app.get('/api/ping', (req, res) => res.json({ status: 'ok', version: '1.1.0' }));
 
@@ -53,6 +55,8 @@ app.get('/', (req, res) => {
     <tr><td><code>POST /api/health</code></td><td>体重・血圧を記録</td></tr>
     <tr><td><code>GET /api/goals/presets</code></td><td>カロリー目標の目安</td></tr>
     <tr><td><code>POST /api/goals/:userId</code></td><td>カロリー目標を設定</td></tr>
+    <tr><td><code>POST /api/menu/analyze-photo</code></td><td>買い物写真から食材を分析</td></tr>
+    <tr><td><code>POST /api/menu/generate</code></td><td>1週間分の献立を生成</td></tr>
   </table>
 </body>
 </html>`);
